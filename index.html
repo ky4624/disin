@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>新春快乐</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body {
+            overflow: hidden;
+            background: #000828; /* 迪士尼夜空深蓝黑色，氛围感拉满 */
+        }
+        /* 城堡背景 - 居中展示，贴合夜空 */
+        #castle {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            height: 45vh;
+            background: url('https://img1.baidu.com/it/u=2762607670,1177023126&fm=253&fmt=auto&app=138&f=JPEG?w=1200&h=675') no-repeat bottom center;
+            background-size: cover;
+            opacity: 0.9;
+            z-index: 1;
+        }
+        /* 烟花画布 全屏覆盖 */
+        #fireworksCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 2;
+            pointer-events: none; /* 不遮挡按钮点击 */
+        }
+        /* 发射按钮 - 居中悬浮，新春喜庆样式 */
+        #fireBtn {
+            position: fixed;
+            top: 85%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            padding: 16px 40px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #ff4e29, #ffd200);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 100, 0, 0.8);
+            transition: all 0.3s;
+        }
+        #fireBtn:hover {
+            transform: translateX(-50%) scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 150, 0, 1);
+        }
+        #fireBtn:active {
+            transform: translateX(-50%) scale(0.98);
+        }
+    </style>
+</head>
+<body>
+    <div id="castle"></div>
+    <canvas id="fireworksCanvas"></canvas>
+    <button id="fireBtn">点击绽放 新春快乐 ✨</button>
+
+    <script>
+        // ========== 基础配置 ==========
+        const canvas = document.getElementById('fireworksCanvas');
+        const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('fireBtn');
+        let canvasW, canvasH;
+        let fireworks = []; // 烟花数组
+        let randomFireTimer = null; // 随机烟花定时器
+        const FIRE_COLORS = ['#ff4e29','#ffd200','#ff9a00','#ffef9f','#ffffff','#ff0050']; // 新春金红配色
+
+        // 适配窗口大小
+        function resizeCanvas() {
+            canvasW = window.innerWidth;
+            canvasH = window.innerHeight;
+            canvas.width = canvasW;
+            canvas.height = canvasH;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // ========== 粒子类（烟花粒子/拖尾） ==========
+        class Particle {
+            constructor(x, y, color, type = 'normal') {
+                this.x = x;
+                this.y = y;
+                this.speed = Math.random() * 3 + 1;
+                this.angle = Math.random() * Math.PI * 2;
+                this.gravity = 0.03;
+                this.vx = Math.cos(this.angle) * this.speed;
+                this.vy = Math.sin(this.angle) * this.speed;
+                this.color = color || FIRE_COLORS[Math.floor(Math.random() * FIRE_COLORS.length)];
+                this.alpha = 1;
+                this.decay = Math.random() * 0.015 + 0.005;
+                this.type = type; // 专属烟花/随机烟花
+            }
+            update() {
+                // 重力下坠效果
+                this.vy += this.gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+                // 粒子渐隐
+                this.alpha -= this.decay;
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.type === 'text' ? 2 : 1.2, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // ========== 核心：生成【新春快乐-ZZ】专属烟花 ==========
+        function createTextFireworks() {
+            // 固定「新春快乐-ZZ」文字烟花的位置，居中绽放，文字粒子定点排布
+            const text = "新春快乐-ZZ";
+            const fontSize = 40;
+            const centerX = canvasW / 2;
+            const centerY = canvasH / 2 - 60;
+            
+            // 绘制文字到画布（隐藏），获取文字像素点位
+            ctx.font = `bold ${fontSize}px 微软雅黑`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const textWidth = ctx.measureText(text).width;
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = textWidth + 40;
+            tempCanvas.height = fontSize + 40;
+            tempCtx.font = `bold ${fontSize}px 微软雅黑`;
+            tempCtx.textAlign = 'center';
+            tempCtx.textBaseline = 'middle';
+            tempCtx.fillStyle = '#fff';
+            tempCtx.fillText(text, tempCanvas.width/2, tempCanvas.height/2);
+
+            // 读取文字像素，生成文字形状的烟花粒子
+            const imageData = tempCtx.getImageData(0,0,tempCanvas.width,tempCanvas.height);
+            const pixels = imageData.data;
+            for(let y=0; y<tempCanvas.height; y+=3) {
+                for(let x=0; x<tempCanvas.width; x+=3) {
+                    const index = (y * tempCanvas.width + x) * 4;
+                    const alpha = pixels[index + 3];
+                    if(alpha > 128) {
+                        const fx = centerX - textWidth/2 + x;
+                        const fy = centerY - fontSize/2 + y;
+                        fireworks.push(new Particle(fx, fy, FIRE_COLORS[Math.floor(Math.random()*3)], 'text'));
+                    }
+                }
+            }
+        }
+
+        // ========== 生成随机烟花（炸开式） ==========
+        function createRandomFireworks() {
+            const x = Math.random() * canvasW * 0.8 + canvasW * 0.1;
+            const y = Math.random() * canvasH * 0.6 + canvasH * 0.2;
+            const color = FIRE_COLORS[Math.floor(Math.random() * FIRE_COLORS.length)];
+            const num = Math.floor(Math.random() * 60) + 80; // 烟花粒子数量
+            for(let i=0; i<num; i++) {
+                fireworks.push(new Particle(x, y, color));
+            }
+        }
+
+        // ========== 动画循环 ==========
+        function animate() {
+            // 半透明黑色背景，实现烟花拖尾残影效果，超有迪士尼氛围感
+            ctx.fillStyle = 'rgba(0, 8, 40, 0.12)';
+            ctx.fillRect(0, 0, canvasW, canvasH);
+            
+            // 更新绘制所有烟花粒子
+            for(let i=fireworks.length-1; i>=0; i--) {
+                const p = fireworks[i];
+                p.update();
+                p.draw();
+                if(p.alpha <= 0) fireworks.splice(i,1);
+            }
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // ========== 点击按钮触发 ==========
+        btn.addEventListener('click', function() {
+            btn.disabled = true; // 点击后禁用按钮，只触发一次专属烟花
+            btn.style.opacity = 0.7;
+            createTextFireworks(); // 先炸开【新春快乐-ZZ】专属烟花
+            
+            // 专属烟花结束后，开启无限随机烟花
+            setTimeout(() => {
+                createRandomFireworks();
+                randomFireTimer = setInterval(() => {
+                    createRandomFireworks();
+                }, 600); // 每600ms随机炸一朵烟花
+            }, 800);
+        });
+    </script>
+</body>
+</html>
