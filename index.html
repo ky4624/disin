@@ -103,6 +103,29 @@
         #fireBtn:active {
             transform: translateX(-50%) scale(0.98);
         }
+        /* 迪士尼风格文字容器 */
+        #disneyText {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 11; /* 最高层级，确保显示在最上层 */
+            font-family: 'Comic Sans MS', 'Marker Felt', 'Arial Rounded MT Bold', sans-serif;
+            font-size: 70px; /* 调整字体大小，确保在一行显示 */
+            font-weight: bold;
+            color: #ffd200; /* 迪士尼标志性金色 */
+            text-shadow: 
+                2px 2px 0px #000,
+                4px 4px 0px #ff4e29,
+                0 0 20px rgba(255, 210, 0, 0.8);
+            letter-spacing: 3px;
+            text-align: center;
+            white-space: nowrap; /* 关键：防止文字换行 */
+            max-width: 90vw; /* 限制最大宽度，防止溢出屏幕 */
+            overflow: visible; /* 允许文字溢出容器 */
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
+        }
     </style>
 </head>
 <body>
@@ -111,6 +134,8 @@
     <div id="castle"></div>
     <canvas id="fireworksCanvas"></canvas>
     <button id="fireBtn">点击绽放 新春快乐 ✨</button>
+    <!-- 迪士尼风格文字元素 -->
+    <div id="disneyText">新春快乐-ZZ</div>
     
     <!-- 背景音乐 -->
     <audio id="bgm" src="fafh.MP3" autoplay loop></audio>
@@ -120,6 +145,7 @@
         const canvas = document.getElementById('fireworksCanvas');
         const ctx = canvas.getContext('2d');
         const btn = document.getElementById('fireBtn');
+        const disneyText = document.getElementById('disneyText');
         let canvasW, canvasH;
         let fireworks = []; // 烟花数组
         let randomFireTimer = null; // 随机烟花定时器
@@ -206,49 +232,57 @@
 
         // ========== 核心：生成【新春快乐-ZZ】专属烟花 ==========
         function createTextFireworks() {
-            // 固定「新春快乐-ZZ」文字烟花的位置，居中绽放，文字粒子定点排布
+            // 显示迪士尼风格文字
+            disneyText.style.opacity = '1';
+            
+            // 文字内容和位置
             const text = "新春快乐-ZZ";
-            const fontSize = 50; // 增大字体大小
+            const fontSize = 60;
             const centerX = canvasW / 2;
-            const centerY = canvasH / 2 - 60;
+            const centerY = canvasH / 2;
             
-            // 使用更通用的字体，添加备选字体
-            const font = `bold ${fontSize}px sans-serif, 'Microsoft YaHei', '微软雅黑', Arial`;
-            
-            // 绘制文字到画布（隐藏），获取文字像素点位
-            ctx.font = font;
+            // 设置字体，确保中文显示正常
+            ctx.font = `bold ${fontSize}px 'Microsoft YaHei', '微软雅黑', Arial, sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            const textWidth = ctx.measureText(text).width;
             
-            // 增大tempCanvas尺寸，确保能完全容纳文字
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = textWidth + 60; // 增加宽度
-            tempCanvas.height = fontSize + 60; // 增加高度
-            tempCtx.font = font;
-            tempCtx.textAlign = 'center';
-            tempCtx.textBaseline = 'middle';
-            tempCtx.fillStyle = '#fff';
-            tempCtx.fillText(text, tempCanvas.width/2, tempCanvas.height/2);
-
-            // 读取文字像素，生成文字形状的烟花粒子
-            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-            const pixels = imageData.data;
+            // 创建文字形状的烟花粒子
+            const characters = text.split('');
+            const charSpacing = fontSize * 0.8;
+            const totalWidth = characters.length * charSpacing;
+            const startX = centerX - totalWidth / 2 + charSpacing / 2;
             
-            // 减小像素读取步长，确保文字完整
-            for(let y = 0; y < tempCanvas.height; y += 2) {
-                for(let x = 0; x < tempCanvas.width; x += 2) {
-                    const index = (y * tempCanvas.width + x) * 4;
-                    const alpha = pixels[index + 3];
+            // 为每个字符生成粒子
+            characters.forEach((char, index) => {
+                const charX = startX + index * charSpacing;
+                
+                // 为每个字符生成大量粒子
+                for (let i = 0; i < 200; i++) {
+                    // 在字符区域内随机分布
+                    const offsetX = (Math.random() - 0.5) * fontSize * 0.8;
+                    const offsetY = (Math.random() - 0.5) * fontSize;
                     
-                    // 降低alpha值判断条件，确保能捕获到所有文字像素
-                    if(alpha > 64) {
-                        const fx = centerX - textWidth / 2 + x - 30; // 调整X位置
-                        const fy = centerY - fontSize / 2 + y - 30; // 调整Y位置
-                        fireworks.push(new Particle(fx, fy, FIRE_COLORS[Math.floor(Math.random() * 3)], 'text'));
-                    }
+                    const x = charX + offsetX;
+                    const y = centerY + offsetY;
+                    
+                    // 创建粒子
+                    const particle = new Particle(x, y, FIRE_COLORS[Math.floor(Math.random() * FIRE_COLORS.length)], 'text');
+                    particle.speed = Math.random() * 4 + 1;
+                    particle.vx = Math.cos(particle.angle) * particle.speed;
+                    particle.vy = Math.sin(particle.angle) * particle.speed;
+                    particle.decay = Math.random() * 0.02 + 0.005;
+                    
+                    fireworks.push(particle);
                 }
+            });
+            
+            // 添加额外的中心爆发效果
+            for (let i = 0; i < 100; i++) {
+                const particle = new Particle(centerX, centerY, FIRE_COLORS[Math.floor(Math.random() * FIRE_COLORS.length)], 'text');
+                particle.speed = Math.random() * 5 + 2;
+                particle.vx = Math.cos(particle.angle) * particle.speed;
+                particle.vy = Math.sin(particle.angle) * particle.speed;
+                fireworks.push(particle);
             }
         }
 
